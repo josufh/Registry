@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Text.RegularExpressions;
 
 namespace Registry.Services.Digestion;
@@ -20,7 +21,7 @@ public sealed partial class Digest
         string[] parts = digest.Split(':');
 
         Algorithm algorithm = DetectAlgorithm(parts[0]);
-        string hex = ValidateHexFormat(parts[1]);
+        string hex = ValidateHexFormat(algorithm, parts[1]);
 
         return new(algorithm, hex);
     }
@@ -39,9 +40,16 @@ public sealed partial class Digest
         throw new NotSupportedException();
     }
 
-    public static string ValidateHexFormat(string hex)
+    public static string ValidateHexFormat(Algorithm algorithm, string hex)
     {
-        if (!HexValidationRegex().IsMatch(hex))
+        Regex validationRegex = algorithm switch
+        {
+            Algorithm.Sha256 => Hex256ValidationRegex(),
+            Algorithm.Sha512 => Hex512ValidationRegex(),
+            _ => throw new UnreachableException()
+        };
+
+        if (!validationRegex.IsMatch(hex))
         {
             throw new FormatException();
         }
@@ -50,5 +58,13 @@ public sealed partial class Digest
     }
 
     [GeneratedRegex("^[a-f0-9]{64}$")]
-    private static partial Regex HexValidationRegex();
+    private static partial Regex Hex256ValidationRegex();
+
+    [GeneratedRegex("^[a-f0-9]{128}$")]
+    private static partial Regex Hex512ValidationRegex();
+
+    public override string ToString()
+    {
+        return $"{Algorithm}:{Hex}";
+    }
 }

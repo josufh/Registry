@@ -20,7 +20,7 @@ public sealed class RegistryApiController : ControllerBase
     }
 
     [HttpPost("v2/{name}/blobs/uploads")]
-    public IActionResult MonoUploadStart(string name)
+    public IActionResult UploadStart(string name)
     {
         string uploadId = Guid.NewGuid().ToString("D");
         // persist upload
@@ -54,7 +54,48 @@ public sealed class RegistryApiController : ControllerBase
             return BadRequest();
         }
 
+        string blobKey = $"blobs/{digest.Algorithm}/{digest.Hex}";
+        using FileStream blobFile = System.IO.File.OpenWrite(blobKey);
+        await blobFile.WriteAsync(blobBytes, cancellationToken);
         
+        string blobLocation = $"/v2/{name}/blobs/{digest}";
+
+        Response.Headers.Location = blobLocation;
+        Response.Headers["Docker-Content-Digest"] = $"{digest}";
+
+        return Created();
+    }
+
+    [HttpPost("v2/{name}/blobs/uploads/")]
+    public async Task<IActionResult> SingleUpload(
+        string name,
+        [FromQuery(Name = "digest")] string digestString,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(digestString))
+        {
+            return BadRequest();
+        }
+
+        using MemoryStream blobStream = new();
+        await Request.Body.CopyToAsync(blobStream, cancellationToken);
+        byte[] blobBytes = blobStream.ToArray();
+
+        Digest digest = Digest.FromDigestString(digestString);
+
+        if (!_digester.ValidateBytes(blobBytes, digest))
+        {
+            return BadRequest();
+        }
+
+        string blobKey = $"blobs/{digest.Algorithm}/{digest.Hex}";
+        using FileStream blobFile = System.IO.File.OpenWrite(blobKey);
+        await blobFile.WriteAsync(blobBytes, cancellationToken);
+        
+        string blobLocation = $"/v2/{name}/blobs/{digest}";
+
+        Response.Headers.Location = blobLocation;
+        Response.Headers["Docker-Content-Digest"] = $"{digest}";
 
         return Created();
     }

@@ -4,9 +4,17 @@ namespace Registry.Services.Storage;
 
 public sealed class BlobStorage : IBlobStorage
 {
-    private readonly string _rootPath;
-    private readonly IDigester _digester;
+    public async Task SaveAsync(string key, Stream blobStream)
+    {
+        EnsureDirectory(key);
 
-    public bool HasBlob { get; private set; }
-    public string? Algorithm { get; private set; }
+        using FileStream blobFile = File.Open(key, FileMode.Create, FileAccess.Write, FileShare.None);
+        await blobStream.CopyToAsync(blobFile);
+    }
+
+    private static void EnsureDirectory(string path)
+    {
+        string dirPath = Path.GetDirectoryName(path)!;
+        Directory.CreateDirectory(dirPath);
+    }
 }
