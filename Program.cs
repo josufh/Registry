@@ -1,6 +1,5 @@
-﻿using Microsoft.Extensions.Caching.Memory;
-using Registry.Middleware;
-using Registry.Services.Cache;
+﻿using Registry.Middleware;
+using Registry.Models;
 using Registry.Services.Digestion;
 using Registry.Services.Storage;
 
@@ -13,7 +12,7 @@ builder.Services.AddSwaggerGen();
 
 builder.Services.AddScoped<IDigester, Digester>();
 builder.Services.AddScoped<IBlobStorage, BlobStorage>();
-builder.Services.AddBlobUploadCache();
+builder.Services.AddScoped<Blob>();
 
 WebApplication app = builder.Build();
 

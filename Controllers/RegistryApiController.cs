@@ -1,16 +1,22 @@
 using Microsoft.AspNetCore.Mvc;
+using Registry.Models;
 using Registry.Services.Digestion;
+using Registry.Services.Uploads;
 
 namespace Registry.Controllers;
 
+[ApiController]
 public sealed class RegistryApiController : ControllerBase
 {
     private readonly IDigester _digester;
+    private readonly IUploadService _uploadService;
 
     public RegistryApiController(
-        IDigester digester)
+        IDigester digester,
+        IUploadService uploadService)
     {
         _digester = digester;
+        _uploadService = uploadService;
     }
 
     [HttpGet("v2")]
@@ -19,11 +25,12 @@ public sealed class RegistryApiController : ControllerBase
         return Ok();
     }
 
+    // Monolithic POST-PUT / Chunked Upload
     [HttpPost("v2/{name}/blobs/uploads")]
-    public IActionResult UploadStart(string name)
+    public IActionResult UploadStart(
+        string name)
     {
-        string uploadId = Guid.NewGuid().ToString("D");
-        // persist upload
+        string uploadId = _uploadService.NewUploadId();
         string location = $"/v2/{name}/blobs/uploads/{uploadId}";
 
         Response.Headers.Location = location;
@@ -31,11 +38,22 @@ public sealed class RegistryApiController : ControllerBase
         return Accepted();
     }
 
+    [HttpPatch("v2/{name}/blobs/uploads/{uploadId}")]
+    public async Task<IActionResult> UploadChunk(
+        string name,
+        string uploadId,
+        [FromServices] Blob blob,
+        CancellationToken cancellationToken)
+    {
+        
+    }
+
     [HttpPut("v2/{name}/blobs/uploads/{uploadId}")]
-    public async Task<IActionResult> MonoUploadComplete(
+    public async Task<IActionResult> UploadComplete(
         string name,
         string uploadId,
         [FromQuery(Name = "digest")] string digestString,
+        [FromServices] Blob blob,
         CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(digestString))
