@@ -30,7 +30,7 @@ public sealed class RegistryApiController : ControllerBase
     public IActionResult UploadStart(
         string name)
     {
-        string uploadId = _uploadService.NewUploadId();
+        string uploadId = _uploadService.NewUploadId(name);
         string location = $"/v2/{name}/blobs/uploads/{uploadId}";
 
         Response.Headers.Location = location;
@@ -45,6 +45,13 @@ public sealed class RegistryApiController : ControllerBase
         [FromServices] Blob blob,
         CancellationToken cancellationToken)
     {
+        if (!_uploadService.IsUploadPending(name, uploadId))
+        {
+            return BadRequest();
+        }
+
+        await _uploadService.AppendChunkAsync(name, uploadId, blob.Stream, cancellationToken);
+
         
     }
 
