@@ -2,18 +2,15 @@ namespace Registry.Services.Uploads;
 
 public sealed class UploadService : IUploadService
 {
-    private const string UploadIdsDirectoryPath = "./blobs/uploadids/";
-
-    public UploadService()
-    {
-        EnsureDirectoryExists(UploadIdsDirectoryPath);
-    }
+    private const string UploadIdsDirectoryPath = "/uploadids/";
 
     public string NewUploadId(string name)
     {
-        string uploadId = Guid.NewGuid().ToString("D");
+        EnsureNamespaceExists(name);
 
+        string uploadId = Guid.NewGuid().ToString("D");
         string path = GetUploadIdsFilePath(name, uploadId);
+        
         File.Create(path).Dispose();
 
         return uploadId;
@@ -34,9 +31,9 @@ public sealed class UploadService : IUploadService
 
     private static string GetUploadIdsFilePath(string @namespace, string filename) => Path.Combine(UploadIdsDirectoryPath, Path.Combine(@namespace, filename));
 
-    private static void EnsureDirectoryExists(string path)
+    private static void EnsureNamespaceExists(string name)
     {
-        path = Path.GetDirectoryName(path) ?? string.Empty;
+        string path = Path.Combine(UploadIdsDirectoryPath, name);
         Directory.CreateDirectory(path);
     }
 }

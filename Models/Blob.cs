@@ -2,9 +2,9 @@ namespace Registry.Models;
 
 public sealed class Blob
 {
-    public Stream? Stream { get; }
+    public Stream? Stream { get; private set; }
 
-    public Blob(Stream stream)
+    public void SetStream(Stream stream)
     {
         Stream = stream;
     }

@@ -1,0 +1,14 @@
+services:
+  app:
+    image: mcr.microsoft.com/dotnet/aspnet:8.0
+    container_name: registry
+    working_dir: /app
+    volumes:
+      - ./publish:/app
+      - ./uploadids:/uploadids
+      - ./repositories:/repositories
+    environment:
+      - ASPNETCORE_URLS=http://0.0.0.0:5000
+    command: ["dotnet", "Registry.dll"]
+    ports:
+      - "5000:5000"

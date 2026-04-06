@@ -20,7 +20,7 @@ public sealed class BlobInterceptionMiddleware
             return;    
         }
 
-        blob = new(context.Request.Body);
+        blob.SetStream(context.Request.Body);
 
         await _next(context);
     }

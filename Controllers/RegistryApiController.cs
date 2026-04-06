@@ -2,26 +2,32 @@ using Microsoft.AspNetCore.Mvc;
 using Registry.Models;
 using Registry.Services.Digestion;
 using Registry.Services.Uploads;
+using Registry.Services.Validation;
 
 namespace Registry.Controllers;
 
 [ApiController]
-public sealed class RegistryApiController : ControllerBase
+public partial class RegistryApiController(
+    IDigester digester,
+    IUploadService uploadService,
+    IValidationService validation) : ControllerBase
 {
-    private readonly IDigester _digester;
-    private readonly IUploadService _uploadService;
-
-    public RegistryApiController(
-        IDigester digester,
-        IUploadService uploadService)
+    [HttpGet("v2")]
+    public IActionResult Base()
     {
-        _digester = digester;
-        _uploadService = uploadService;
+        return Ok();
     }
 
-    [HttpGet("v2")]
-    public IActionResult Ping()
+    [HttpGet("v2/{name}/tags/list")]
+    public async Task<IActionResult> FetchTags(
+        string name,
+        CancellationToken cancellationToken)
     {
+        if (!validation.IsValidNamespaceFormat(name))
+        {
+            return NameInvalid();
+        }
+
         return Ok();
     }
 
@@ -30,7 +36,7 @@ public sealed class RegistryApiController : ControllerBase
     public IActionResult UploadStart(
         string name)
     {
-        string uploadId = _uploadService.NewUploadId(name);
+        string uploadId = uploadService.NewUploadId(name);
         string location = $"/v2/{name}/blobs/uploads/{uploadId}";
 
         Response.Headers.Location = location;
@@ -45,14 +51,14 @@ public sealed class RegistryApiController : ControllerBase
         [FromServices] Blob blob,
         CancellationToken cancellationToken)
     {
-        if (!_uploadService.IsUploadPending(name, uploadId))
+        if (!uploadService.IsUploadPending(name, uploadId))
         {
             return BadRequest();
         }
 
-        await _uploadService.AppendChunkAsync(name, uploadId, blob.Stream, cancellationToken);
+        await uploadService.AppendChunkAsync(name, uploadId, blob.Stream, cancellationToken);
 
-        
+        return Ok();
     }
 
     [HttpPut("v2/{name}/blobs/uploads/{uploadId}")]
@@ -74,7 +80,7 @@ public sealed class RegistryApiController : ControllerBase
 
         Digest digest = Digest.FromDigestString(digestString);
 
-        if (!_digester.ValidateBytes(blobBytes, digest))
+        if (!digester.ValidateBytes(blobBytes, digest))
         {
             return BadRequest();
         }
@@ -91,37 +97,37 @@ public sealed class RegistryApiController : ControllerBase
         return Created();
     }
 
-    [HttpPost("v2/{name}/blobs/uploads/")]
-    public async Task<IActionResult> SingleUpload(
-        string name,
-        [FromQuery(Name = "digest")] string digestString,
-        CancellationToken cancellationToken)
-    {
-        if (string.IsNullOrWhiteSpace(digestString))
-        {
-            return BadRequest();
-        }
+    // [HttpPost("v2/{name}/blobs/uploads/")]
+    // public async Task<IActionResult> SingleUpload(
+    //     string name,
+    //     [FromQuery(Name = "digest")] string digestString,
+    //     CancellationToken cancellationToken)
+    // {
+    //     if (string.IsNullOrWhiteSpace(digestString))
+    //     {
+    //         return BadRequest();
+    //     }
 
-        using MemoryStream blobStream = new();
-        await Request.Body.CopyToAsync(blobStream, cancellationToken);
-        byte[] blobBytes = blobStream.ToArray();
+    //     using MemoryStream blobStream = new();
+    //     await Request.Body.CopyToAsync(blobStream, cancellationToken);
+    //     byte[] blobBytes = blobStream.ToArray();
 
-        Digest digest = Digest.FromDigestString(digestString);
+    //     Digest digest = Digest.FromDigestString(digestString);
 
-        if (!_digester.ValidateBytes(blobBytes, digest))
-        {
-            return BadRequest();
-        }
+    //     if (!digester.ValidateBytes(blobBytes, digest))
+    //     {
+    //         return BadRequest();
+    //     }
 
-        string blobKey = $"blobs/{digest.Algorithm}/{digest.Hex}";
-        using FileStream blobFile = System.IO.File.OpenWrite(blobKey);
-        await blobFile.WriteAsync(blobBytes, cancellationToken);
+    //     string blobKey = $"blobs/{digest.Algorithm}/{digest.Hex}";
+    //     using FileStream blobFile = System.IO.File.OpenWrite(blobKey);
+    //     await blobFile.WriteAsync(blobBytes, cancellationToken);
         
-        string blobLocation = $"/v2/{name}/blobs/{digest}";
+    //     string blobLocation = $"/v2/{name}/blobs/{digest}";
 
-        Response.Headers.Location = blobLocation;
-        Response.Headers["Docker-Content-Digest"] = $"{digest}";
+    //     Response.Headers.Location = blobLocation;
+    //     Response.Headers["Docker-Content-Digest"] = $"{digest}";
 
-        return Created();
-    }
+    //     return Created();
+    // }
 }
